@@ -1,0 +1,108 @@
+name: Release
+
+on:
+  push:
+    tags: ["[0-9][0-9][0-9][0-9].[0-9]*"]
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: ghcr.io/moinchat/moin-server
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check the tag matches the Dockerfile
+        run: |
+          pinned="$(sed -n 's/^ARG VERSION=//p' Dockerfile)"
+          if [[ "${pinned}" != "${GITHUB_REF_NAME}" ]]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} but the Dockerfile pins ${pinned}."
+            exit 1
+          fi
+
+      - name: Set up Buildx
+        run: docker buildx create --use --driver docker-container
+
+      - name: Build
+        run: >-
+          docker buildx build --platform "linux/${{ matrix.arch }}"
+          --load --tag moin-server:smoke .
+
+      - name: Smoke test
+        run: ./smoke-test.sh moin-server:smoke
+
+      - name: Log in to GHCR
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "${TOKEN}" | docker login ghcr.io --username "${GITHUB_ACTOR}" --password-stdin
+
+      - name: Push by digest
+        run: |
+          docker buildx build --platform "linux/${{ matrix.arch }}" \
+            --output "type=image,name=${IMAGE},push-by-digest=true,name-canonical=true,push=true" \
+            --metadata-file metadata.json .
+          mkdir digests
+          digest="$(python3 -c 'import json; print(json.load(open("metadata.json"))["containerimage.digest"])')"
+          touch "digests/${digest#sha256:}"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: digest-${{ matrix.arch }}
+          path: digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: digest-*
+          merge-multiple: true
+          path: digests
+
+      - name: Log in to GHCR
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "${TOKEN}" | docker login ghcr.io --username "${GITHUB_ACTOR}" --password-stdin
+
+      - name: Push the manifest
+        run: |
+          tags=(--tag "${IMAGE}:${GITHUB_REF_NAME}")
+          newest="$(git tag --list '[0-9][0-9][0-9][0-9].[0-9]*' | sort -V | tail -1)"
+          if [[ "${newest}" == "${GITHUB_REF_NAME}" ]]; then
+            tags+=(--tag "${IMAGE}:latest")
+          else
+            echo "${newest} is newer, so latest stays where it is."
+          fi
+          sources=()
+          for digest in digests/*; do
+            sources+=("${IMAGE}@sha256:${digest##*/}")
+          done
+          docker buildx imagetools create "${tags[@]}" "${sources[@]}"
+          docker buildx imagetools inspect "${IMAGE}:${GITHUB_REF_NAME}"

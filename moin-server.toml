@@ -1,0 +1,5 @@
+# See https://moin.chat/docs/server/configuration
+
+data_dir = "/data"
+name = "Moin Community"
+rooms = "managed"
