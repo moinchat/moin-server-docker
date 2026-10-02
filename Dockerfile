@@ -23,6 +23,9 @@ RUN --mount=from=download,target=/download \
     && tar -xzf "/download/${TARGETARCH}.tar.gz" -C /tmp --strip-components=1 \
     && install -m 0755 /tmp/moin-server /rootfs/usr/local/bin/ \
     && install -m 0644 /tmp/THIRD-PARTY-NOTICES /rootfs/usr/share/doc/moin-server/ \
+    && if [ -f /tmp/LICENSE ]; then \
+         install -m 0644 /tmp/LICENSE /rootfs/usr/share/doc/moin-server/; \
+       fi \
     && groupadd --gid 10001 moin \
     && useradd --uid 10001 --gid moin --no-create-home --home-dir /data \
          --shell /usr/sbin/nologin moin
