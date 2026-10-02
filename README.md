@@ -15,3 +15,9 @@ docker run -d --name moin-server \
 - `/data`: the server's data. Back it up. Must be writable by UID `10001`.
 - `/config/moin-server.toml`: the config file. Mount your own to replace the
   default. See the [config reference](https://moin.chat/docs/server/configuration).
+
+## Licence
+
+Running `moin-server` is free for communities of your own. Hosting Moin
+servers for others as a service, or redistributing the server, needs
+permission: see the [server licence](https://moin.chat/licenses/moin-server.txt).
