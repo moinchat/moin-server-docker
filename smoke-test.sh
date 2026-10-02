@@ -19,6 +19,7 @@ for attempt in $(seq 30); do
 done
 status
 docker exec "${container}" test -s /usr/share/doc/moin-server/THIRD-PARTY-NOTICES
+docker exec "${container}" test -s /usr/share/doc/moin-server/LICENSE
 if [[ "$(docker exec "${container}" id -u)" != 10001 ]]; then
   echo "The server does not run as UID 10001." >&2
   exit 1

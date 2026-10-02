@@ -22,10 +22,8 @@ RUN --mount=from=download,target=/download \
     install -d /rootfs/usr/local/bin /rootfs/usr/share/doc/moin-server /rootfs/data \
     && tar -xzf "/download/${TARGETARCH}.tar.gz" -C /tmp --strip-components=1 \
     && install -m 0755 /tmp/moin-server /rootfs/usr/local/bin/ \
-    && install -m 0644 /tmp/THIRD-PARTY-NOTICES /rootfs/usr/share/doc/moin-server/ \
-    && if [ -f /tmp/LICENSE ]; then \
-         install -m 0644 /tmp/LICENSE /rootfs/usr/share/doc/moin-server/; \
-       fi \
+    && install -m 0644 /tmp/LICENSE /tmp/THIRD-PARTY-NOTICES \
+         /rootfs/usr/share/doc/moin-server/ \
     && groupadd --gid 10001 moin \
     && useradd --uid 10001 --gid moin --no-create-home --home-dir /data \
          --shell /usr/sbin/nologin moin
@@ -36,7 +34,9 @@ LABEL org.opencontainers.image.title="moin-server" \
       org.opencontainers.image.description="Moin community server" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.source="https://github.com/moinchat/moin-server-docker" \
-      org.opencontainers.image.documentation="https://moin.chat/docs/server/"
+      org.opencontainers.image.documentation="https://moin.chat/docs/server/" \
+      org.opencontainers.image.licenses="LicenseRef-moin-server" \
+      chat.moin.licence="https://moin.chat/licenses/moin-server.txt"
 COPY --from=rootfs /rootfs/usr/ /usr/
 COPY --from=rootfs /etc/passwd /etc/group /etc/
 COPY --from=rootfs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
